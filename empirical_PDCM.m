@@ -1,58 +1,72 @@
 clear all; close all;
 
 
-% run P-DCM on the SPM Attention dataset
+% Specify P-DCM 
 %--------------------------------------------------------------------------
-
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/U.mat');  % load DCM_info, will not be used directly as DCM
-DCM_info=DCM;
-clear DCM;
-
-fprintf("TR = %d \n", DCM_info.Y.dt)     % TR
-if ~DCM_info.Y.X0
-    error("DCM.Y.X0 missing.");
-end
-
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r1_ACC-R.csv')
-DCM.Y.y(:,1) = sub1_r1_ACC_R;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r2_AI-L.csv')
-DCM.Y.y(:,2) = sub1_r2_AI_L;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r3_AI-R.csv')
-DCM.Y.y(:,3) = sub1_r3_AI_R;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r4_dlPFC-R.csv')
-DCM.Y.y(:,4) = sub1_r4_dlPFC_R;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r5_mPFC-R.csv')
-DCM.Y.y(:,5) = sub1_r5_mPFC_R;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r6_IOG-L.csv')
-DCM.Y.y(:,6) = sub1_r6_IOG_L;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r7_IOG-R.csv')
-DCM.Y.y(:,7) = sub1_r7_IOG_R;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r8_thal-R.csv')
-DCM.Y.y(:,8) = sub1_r8_thal_R;
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/sub1_r9_VTA-R.csv')
-DCM.Y.y(:,9) = sub1_r9_VTA_R;
-
-
-% small rescalling
-%scale   = max(max((DCM.Y.y))) - min(min((DCM.Y.y)));
-%scale   = 4/max(scale,4);
-%DCM.Y.y     = DCM.Y.y*scale;
-%DCM.Y.scale = scale;
-
-
-% specify model parameters (or scanling constants)
+%% Specify model parameters
 B0      = 3; % field strength
-TE      = DCM_info.TE;     % echo time (secs)
-nr      = size(DCM.Y.y,2);
-M.delays = ones(1,nr)*DCM_info.Y.dt/2; 
+TE      = 0.04;     % echo time (secs)
+TR      = 2.0;  % Repetition time (secs)
+
+%% Times series
+% load timeseries files
+timeseries = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/sub-0006_ROI-timeseries_9ROI.csv'); 
+% get the names of ROIs
+roi_names = timeseries.Properties.VariableNames;
+% get timeseries
+timeseries = table2array(timeseries);
+
+% DCM.Y.y should be a ns x nr array.
+% ns: length of timeseries. 
+% nr: number of ROIs
+Y.y     = timeseries;
+ns      = size(Y.y,1);
+nr      = size(Y.y,2);
+M.l     = nr;
+R       = nr;
+
+%if ~DCM_info.Y.X0
+%    error("DCM.Y.X0 missing.");
+%end
+
+%% External Inputs
+taskinputs  = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/sub-0006_U_events_decoded.csv');
+% cnames contain the names of all inputs, driving input at the end
+cnames      = {'modulatory','driving'};
+% stimulus_ u should be a cell array of size n_events x (2 n_inputs)
+% e.g., cell 1 is driving input onset, cell 2 is driving input duration.
+% cell 3 is modulatory input, cell 4 is modulatory input duration.
+idx = taskinputs.OutcomexVolatility_amp > 0;
+task_modulatory = taskinputs(idx,:);
+stimulus_u  = {table2array(taskinputs(:,3))' ones(size(taskinputs(:,3)))';table2array(task_modulatory(:,3))' ones(size(task_modulatory(:,3)))'};
+% onsets should be a cell array of size 1 x nu
+% nu: number of inputs
+% Each cell contains a double array of onsets
+onset{1}      = [stimulus_u(2,1)',stimulus_u(1,1)];
+% duration should be a cell array of size 1 x nu
+% nu: number of inputs
+% Each cell contains a double array of duration, corresponding to onsets
+duration{1}    = [{ones(1,80)*(TR/600)}, {ones(1,140)*(TR/600)}];
+
+dt = TR / 60;
+
+
+%% create DCM.U and DCM.Y
+cutoff = Inf;   % if some low pass filtering has to be done ... otherwise Inf for none
+
+DCM = create_SPM_file_for_DCM(Y,ns,TR,onset,duration,cnames,cutoff,roi_names,TR/dt);
+
+%% Prepare M
+M   = PDCM_priors_YX(R,zeros(R,R),zeros(R,R),zeros(R,2));
+%% Other Model specification
+M.delays = ones(1,nr)*(TR/2);
 M.TE    = TE;
 M.B0    = B0;
 M.m     = nr;
 %M.n     = 6;         
-M.l     = nr;
 %M.N     = 64;
-M.dt    = DCM_info.U.dt;
-M.ns    = size(DCM.Y.y,1);
+M.dt    = DCM.U.dt;
+
 M.TE    = TE;
 M.B0    = B0;
 M.x     = zeros(M.m,6); 
@@ -65,12 +79,20 @@ M.Tc  = [];
 M.Tv  = [];
 M.Tm  = [];
 
-n           = nr;
-% Connectivity parameters
-pE.A        = DCM_info.a.*exp(-2);  % endogenous
-pE.B        = zeros(n,n); % modulatory
 
-pE.D        = zeros(n);    % nonlinear modulation 
+%% Specify Connectivity parameters
+A_matrix    = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_A_endogenous_9ROI.csv');
+pE.A        = table2array(A_matrix);
+B_matrix1    = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_B_model1_9ROI.csv');
+pE.B        = table2array(B_matrix);
+C_matrix    = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_C_driving_9ROI.csv');
+pE.C        = [zeros(R,size(DCM.U.u,2)) table2array(C_matrix)];
+
+pE.C
+pE.A        = pE.A.*exp(-2);  % adjust prior as needed
+pE.B        = zeros(R,R); % modulatory
+
+pE.D        = zeros(R);    % nonlinear modulation 
 pE.C        = [0	0;
                 0	0;
                 0	0;
@@ -97,7 +119,7 @@ pE.visco_in  = zeros(1,1);
 pE.nratio    = zeros(1,1);
 pE.V0        = zeros(1,1);
 
-% specify which parameters will be estimated (by specifying prior variance)
+%% specify which parameters will be estimated (by specifying prior variance)
 spC          = spm_unvec(spm_vec(pE)*0,pE);
 spC.C        = [0	0;
                 0	0;
@@ -130,18 +152,10 @@ M.pE         = pE;
 M.pC         = pC;
 DCM.M        = M;
 
-load('/home/yuexin/Documents/DCM_CAMH_singlesubject/stimulus_u.csv');
-DCM.U.dt = DCM_info.U.dt;
-DCM.U.name = DCM_info.U.name;
-DCM.U.u = zeros(size(DCM_info.U.u));
-for i = 1:size(stimulus_u,2)
-    for j =1:size(stimulus_u,1)
-        if stimulus_u(j,i)>0
-            duration=stimulus_u(j,i);
-            DCM.U.u(j:j+duration,i) = 1;
-        end
-    end
-end
+%% Create SPM file for DCM
+
+
+
 % Run the model inversion:
 [Ep,Cp,Eh,F] = spm_nlsi_GN(M,DCM.U,DCM.Y);
 % Ep - estimated parameters (same structure as pE above)

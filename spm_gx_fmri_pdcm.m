@@ -26,6 +26,7 @@ function [g,dgdx] = spm_gx_fmri_pdcm(x,u,P,M)
 % time to echo (TE) 
 %--------------------------------------------------------------------------
 n   = M.m;
+P0  = M.P0; % Yuexin 20260828
 
 TE  = M.TE;
  
@@ -43,21 +44,19 @@ end
  
 % resting oxygen extraction fraction
 %--------------------------------------------------------------------------
-E0  = 0.4;
-
-
-Hct  = 0.38;       % Hematocrit fraction
+E0  = P0.E0; % Yuexin 20260828
+Hct  = P0.Hct;       % Hematocrit fraction % Yuexin 20260828
 
 B0     = M.B0;              % Field strenght        
-gyro   = 2*pi*42.6*10^6;    % Gyromagnetic constant 
-suscep = 0.264*10^-6;       % Susceptibility difference
+gyro   = P0.gyro;    % Gyromagnetic constant  % Yuexin 20260828
+suscep = P0.suscep;       % Susceptibility difference % Yuexin 20260828
 
 nu0   = suscep*gyro*Hct*B0;
 
 
 % Water proton density 
-rho_t  = 0.89;  % In GM tissue
-rho_b  = 0.95 - Hct*0.22;  % In blood  Ref. Lu et al. (2002) NeuroImage
+rho_t  = P0.rho_t;  % In GM tissue % Yuexin 20260828
+rho_b  = P0.rho_b;  % In blood  Ref. Lu et al. (2002) NeuroImage % Yuexin 20260828
 
 
 % Relaxation rates (in sec-1):

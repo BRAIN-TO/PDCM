@@ -44,6 +44,7 @@ A   = full(P.A);                       % linear parameters
 B   = full(P.B);                       % bi-linear parameters
 C   = P.C/16;                          % exogenous parameters
 D   = full(P.D);                       % nonlinear parameters
+P0      = M.P0;                         % Yuexin 20260828
 
 n   = size(A,2);
 if isempty(M.Tn) && length(P.mu) == 1
@@ -76,8 +77,8 @@ end
 %   N(1) - inhibitory-excitatory connection (IE)            mu     (Hz)
 %   N(2) - inhibitory gain  (EI and II)                     lambda (Hz)
 %--------------------------------------------------------------------------
-N     = [0.8 0.2];
-sigma = 0.5*exp(P.sigma);
+N     = [P0.mu P0.lam]; % Yuexin 20260828
+sigma = P0.sigma*exp(P.sigma); % Yuexin 20260828
 A     = A - diag(diag(A)) - diag(sigma.*exp(diag(A)));
 
 nb = size(B,3);
@@ -122,7 +123,7 @@ II    = EI;
 %   V(2) -     gain   (Hz)
 %   V(3) -     decay2 (Hz)
 
-V     = [0.6 1.5 0.6];
+V     = [P0.c1 P0.c2 P0.c3]; % Yuexin 20260828
 %--------------------------------------------------------------------------
 de1   = V(1).*ones(n,1);
 
@@ -146,7 +147,7 @@ end
 %   H(4) - viscoelastic time      (inflation)             visco   (sec)
 %   H(5) - viscoelastic time      (deflatiob)             visco   (sec)
 %--------------------------------------------------------------------------
-H     = [2 0.35 3 3 6];
+H     = [P0.t0 P0.alpha P0.nr P0.tau_in P0.tau_de]; % Yuexin 20260828
 % transit time
 %--------------------------------------------------------------------------
 if length(P.transit)<n

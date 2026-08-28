@@ -54,6 +54,7 @@ DCM.U  = U;
 B0      = 3; % field strength
 TE      = 0.04;     % echo time (secs)
 nr      = size(DCM.Y.y,2);
+M       = PDCM_priors_YX(3,zeros(nr),zeros(nr,nr,2),zeros(nr,3));
 M.delays = ones(1,nr)*DCM.Y.dt/2; 
 M.TE    = TE;
 M.B0    = B0;
