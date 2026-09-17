@@ -26,7 +26,7 @@ ncon  = length(cnam);
        
                 SPM.Sess(ses).U(c).name      = {cnam{c}};
                 SPM.Sess(ses).U(c).ons       = onset{ses}{c};
-                SPM.Sess(ses).U(c).dur       = dur{ses}{c};
+                SPM.Sess(ses).U(c).dur       = dur{ses}{c}; 
                 SPM.Sess(ses).U(c).P(1).name = 'none';
             end
             Ui = spm_get_ons(SPM,ses);

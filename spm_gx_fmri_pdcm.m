@@ -23,79 +23,83 @@ function [g,dgdx] = spm_gx_fmri_pdcm(x,u,P,M)
 % Biophysical constants 
 %==========================================================================
  
-% time to echo (TE) 
-%--------------------------------------------------------------------------
-n   = M.m;
-P0  = M.P0; % Yuexin 20260828
+try
+    % time to echo (TE) 
+    %--------------------------------------------------------------------------
+    n   = M.m;
+    P0  = M.P0; % Yuexin 20260828
+    
+    TE  = M.TE;
+     
+    % resting venous volume (%)
+    %--------------------------------------------------------------------------
+    if length(P.V0)<n
+        V0  = 0.03*ones(n,1)*exp(P.V0);
+    else
+        V0  = 0.03*exp(P.V0);
+    end
+    % slope r0 of intravascular relaxation rate R_iv as a function of oxygen 
+    % saturation S:  R_iv = r0*[(1 - S)-(1 - S0)] (Hz)
+    %--------------------------------------------------------------------------
+    
+     
+    % resting oxygen extraction fraction
+    %--------------------------------------------------------------------------
+    E0  = P0.E0; % Yuexin 20260828
+    Hct  = P0.Hct;       % Hematocrit fraction % Yuexin 20260828
+    
+    B0     = M.B0;              % Field strenght        
+    gyro   = P0.gyro;    % Gyromagnetic constant  % Yuexin 20260828
+    suscep = P0.suscep;       % Susceptibility difference % Yuexin 20260828
+    
+    nu0   = suscep*gyro*Hct*B0;
+    
+    
+    % Water proton density 
+    rho_t  = P0.rho_t;  % In GM tissue % Yuexin 20260828
+    rho_b  = P0.rho_b;  % In blood  Ref. Lu et al. (2002) NeuroImage % Yuexin 20260828
+    
+    
+    % Relaxation rates (in sec-1):
+    
+    if B0 == 7
+        R2s_t  = 34;         % For tissue (for 7T)
+        R2s_b  = 85;           % For venous blood (for 7T)
+        r0     = 228;          % Slope of change in R2* of blood with change in extraction fration during activation 
+    elseif B0 == 3
+        R2s_t  = 25;         
+        R2s_b  = 40;         
+        r0     = 108; 
+     
+    elseif B0 == 1.5
+        R2s_t  = 16;         
+        R2s_b  = 12;         
+        r0     = 15; 
+    else
+        R2s_t = interp1([3 7]',[25 34],B0,'linear','extrap');
+        R2s_b = interp1([3 7]',[40 85],B0,'linear','extrap');
+        r0    = interp1([3 7]',[108 228],B0,'linear','extrap');
+    end
+    
+    % (Baseline) Intra-to-extra-vascular signal ratio
+    ep   = rho_b./rho_t.*exp(-TE*R2s_b)./exp(-TE*R2s_t);        % For venules
+    
+    
+    %-Coefficients in BOLD signal model
+    %==========================================================================
+    
+    k1     = 4.3.*nu0.*E0.*TE;
+    k2     = ep.*r0.*E0.*TE;
+    k3     = 1 - ep; 
+    
+    
+    %-Output equation of BOLD signal model
+    %==========================================================================
+    f   = exp(x(:,3));
+    v   = exp(x(:,4));
+    q   = exp(x(:,5));
+    g  = V0.*(k1.*(1 - q) + k2.*(1 - q./v) + k3.*(1-v))*100;
 
-TE  = M.TE;
- 
-% resting venous volume (%)
-%--------------------------------------------------------------------------
-if length(P.V0)<n
-    V0  = 0.03*ones(n,1)*exp(P.V0);
-else
-    V0  = 0.03*exp(P.V0);
+catch
+    display("error in spm_gx_fmri_pdcm.m");
 end
-% slope r0 of intravascular relaxation rate R_iv as a function of oxygen 
-% saturation S:  R_iv = r0*[(1 - S)-(1 - S0)] (Hz)
-%--------------------------------------------------------------------------
-
- 
-% resting oxygen extraction fraction
-%--------------------------------------------------------------------------
-E0  = P0.E0; % Yuexin 20260828
-Hct  = P0.Hct;       % Hematocrit fraction % Yuexin 20260828
-
-B0     = M.B0;              % Field strenght        
-gyro   = P0.gyro;    % Gyromagnetic constant  % Yuexin 20260828
-suscep = P0.suscep;       % Susceptibility difference % Yuexin 20260828
-
-nu0   = suscep*gyro*Hct*B0;
-
-
-% Water proton density 
-rho_t  = P0.rho_t;  % In GM tissue % Yuexin 20260828
-rho_b  = P0.rho_b;  % In blood  Ref. Lu et al. (2002) NeuroImage % Yuexin 20260828
-
-
-% Relaxation rates (in sec-1):
-
-if B0 == 7
-    R2s_t  = 34;         % For tissue (for 7T)
-    R2s_b  = 85;           % For venous blood (for 7T)
-    r0     = 228;          % Slope of change in R2* of blood with change in extraction fration during activation 
-elseif B0 == 3
-    R2s_t  = 25;         
-    R2s_b  = 40;         
-    r0     = 108; 
- 
-elseif B0 == 1.5
-    R2s_t  = 16;         
-    R2s_b  = 12;         
-    r0     = 15; 
-else
-    R2s_t = interp1([3 7]',[25 34],B0,'linear','extrap');
-    R2s_b = interp1([3 7]',[40 85],B0,'linear','extrap');
-    r0    = interp1([3 7]',[108 228],B0,'linear','extrap');
-end
-
-% (Baseline) Intra-to-extra-vascular signal ratio
-ep   = rho_b./rho_t.*exp(-TE*R2s_b)./exp(-TE*R2s_t);        % For venules
-
-
-%-Coefficients in BOLD signal model
-%==========================================================================
-
-k1     = 4.3.*nu0.*E0.*TE;
-k2     = ep.*r0.*E0.*TE;
-k3     = 1 - ep; 
-
-
-%-Output equation of BOLD signal model
-%==========================================================================
-f   = exp(x(:,3));
-v   = exp(x(:,4));
-q   = exp(x(:,5));
-g  = V0.*(k1.*(1 - q) + k2.*(1 - q./v) + k3.*(1-v))*100;
-
