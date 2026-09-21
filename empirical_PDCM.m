@@ -4,6 +4,8 @@ clear all; close all;
 %% Specify P-DCM, Users need to fill out this section.
 %--------------------------------------------------------------------------
 % Specify model parameters
+working_dir = '/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/';
+
 B0          = 3;        % field strength
 TE          = 0.04;     % echo time (secs)
 TR          = 2.0;      % Repetition time (secs)
@@ -15,15 +17,15 @@ R           = 9;        % number of ROIs
 %--------------------------------------------------------------------------
 % pE.A should be a R x R matrix where the entry specifies intrinsic
 % connections.
-A_table    = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_A_endogenous_9ROI.csv','ReadRowNames',true);
+A_table    = readtable([working_dir,'DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_A_endogenous_9ROI.csv'],'ReadRowNames',true);
 A_matrix        = table2array(A_table);
 % pE.B should be a R x R matrix where the entry specifies whether the 
 % intrinsic connection (corresponding to A) experience connectivity changes.
-B_table    = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_B_model2_9ROI.csv','ReadRowNames',true);
+B_table    = readtable([working_dir,'DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_B_model2_9ROI.csv'],'ReadRowNames',true);
 B_matrix        = table2array(B_table);
 % pE.C should be a R x n_events matrix, the entries in the last column
 % represent which regions receives driving inputs
-C_table    = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_C_driving_9ROI.csv','ReadRowNames',true);
+C_table    = readtable([working_dir,'DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/matrix_C_driving_9ROI.csv'],'ReadRowNames',true);
 C_matrix        = [zeros(R,n_events-1) table2array(C_table)];
 % pE.Bmu should be a 1 x n_events array, if Bmu or Blambda has
 % event-related changes.
@@ -32,7 +34,7 @@ pE.Blambda  = [];
 
 % External Inputs
 %--------------------------------------------------------------------------
-taskinputs  = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/sub-0006_U_events_decoded.csv');
+taskinputs  = readtable([working_dir,'DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/sub-0006_U_events_decoded.csv']);
 % cnames contain the names of all inputs, driving input at the end
 cnames      = {'modulatory','driving'};
 % stimulus_ u should be a cell array of size n_events x (2 n_inputs)
@@ -50,7 +52,7 @@ duration{1}    = [{zeros(1,80)}, {zeros(1,140)}];
 
 % load timeseries files
 %--------------------------------------------------------------------------
-timeseries = readtable('/home/yuexin/Documents/[External] Re_ Task Based fMRI DCM Data/DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/sub-0006_ROI-timeseries_9ROI.csv'); 
+timeseries = readtable([working_dir,'DCM_CAMH_singlesubject_sub-0006/DCM_CAMH_singlesubject_sub-0006/sub-0006_ROI-timeseries_9ROI.csv']); 
 % get the names of ROIs
 roi_names = timeseries.Properties.VariableNames;
 % time series should be a n_TR x R matrix
@@ -162,5 +164,5 @@ DCM.v = length(DCM.Y.y);
 DCM.R = DCM.Y.y - DCM.y;
 DCM.xY.name = roi_names;
 
-save("DCM_pdcm_CAMH_model2.mat","DCM","F","Ep","Cp");
+save([working_dir,"DCM_pdcm_CAMH_model2.mat"],"DCM","F","Ep","Cp");
 
