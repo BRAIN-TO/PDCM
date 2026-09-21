@@ -153,13 +153,14 @@ DCM.Eh = Eh;
 DCM.Yp  = yp; % predicted responses
 DCM.Xp  = X;
 DCM.X = X;
+DCM.y = yp;
 DCM.v = length(DCM.y);
 
 % Fields below are added just to fit in spm dcm QC spm_dcm_fmri_check
 DCM.options.two_state = 0;
 DCM.v = length(DCM.Y.y);
-DCM.y = yp;
 DCM.R = DCM.Y.y - DCM.y;
+DCM.xY.name = roi_names;
 
 save("DCM_pdcm_CAMH_model2.mat","DCM","F","Ep","Cp");
 
